@@ -3,11 +3,13 @@ angular.module('ion-google-place', [])
         '$ionicTemplateLoader',
         '$ionicBackdrop',
         '$ionicPlatform',
+        '$ionicLoading',
+        '$cordovaGeolocation',
         '$q',
         '$timeout',
         '$rootScope',
         '$document',
-        function($ionicTemplateLoader, $ionicBackdrop, $ionicPlatform, $q, $timeout, $rootScope, $document) {
+        function($ionicTemplateLoader, $ionicBackdrop, $ionicPlatform, $ionicLoading, $cordovaGeolocation, $q, $timeout, $rootScope, $document) {
             return {
                 require: '?ngModel',
                 restrict: 'E',
@@ -16,7 +18,8 @@ angular.module('ion-google-place', [])
                 scope: {
                     ngModel: '=?',
                     geocodeOptions: '=',
-                    currentLocation: '@'
+                    currentLocation: '@',
+                    currentLocationOnload: '@'
                 },
                 link: function(scope, element, attrs, ngModel) {
                     var unbindBackButtonAction;
@@ -27,7 +30,8 @@ angular.module('ion-google-place', [])
 
                     scope.displayCurrentLocation = false;
                     scope.currentLocation = scope.currentLocation === "true"? true:false;
-                    
+                    scope.currentLocationOnload = scope.currentLocationOnload === "true"? true:false;
+
                     if(!!navigator.geolocation && scope.currentLocation){
                         scope.displayCurrentLocation = true;
                     }
@@ -95,7 +99,6 @@ angular.module('ion-google-place', [])
                                     $ionicBackdrop.release();
                                 })
                                 .catch(function(error){
-                                    console.log('erreur catch',error);
                                     //if(error.from == 'getLocation'){
                                     //    getLocationError(error);
                                     //} else {
@@ -116,6 +119,12 @@ angular.module('ion-google-place', [])
                                     }, 2000);
                                 });
                         };
+
+                        $ionicPlatform.ready(function () {
+                            if (scope.currentLocationOnload) scope.setCurrentLocation();
+                        });
+
+                        scope.$parent.setCurrentLocation = scope.setCurrentLocation;
 
                         scope.$watch('searchQuery', function(query){
                             if (searchEventTimeout) $timeout.cancel(searchEventTimeout);
@@ -199,7 +208,7 @@ angular.module('ion-google-place', [])
                             element.val('');
                         } else if (typeof(ngModel.$viewValue) === 'string') {
                           element.val(ngModel.$viewValue);
-                        } 
+                        }
                         else {
                             element.val(ngModel.$viewValue.formatted_address || '');
                         }
@@ -214,12 +223,34 @@ angular.module('ion-google-place', [])
 
                     function getLocation() {
                         return $q(function (resolve, reject) {
-                            navigator.geolocation.getCurrentPosition(function (position) {
-                                resolve(position);
-                            }, function (error) {
-                                error.from = 'getLocation';
-                                reject(error);
-                            });
+                            if (typeof(cordova) === "undefined") {
+                                codovaGetLocation(resolve, reject);
+                            } else {
+                                cordova.plugins.diagnostic.isLocationEnabled(function (e) {
+                                  // check if the mobile have the location enabled,
+                                  // if no, witch to location settings
+                                  if (!e) {
+                                    $ionicLoading.hide();
+                                    scope.$parent.init_complete = true;
+                                    cordova.plugins.diagnostic.switchToLocationSettings();
+
+                                    return;
+                                  } else {
+                                    codovaGetLocation(resolve, reject);
+                                  }
+
+                                }, function (e) {
+                                  alert('Error ' + e);
+                                });
+                            }
+                        });
+                    }
+
+                    function codovaGetLocation(resolve, reject) {
+                        var posConf = {timeout: 10000, enableHighAccuracy: true};
+                        console.log("CORDOVA get location");
+                        $cordovaGeolocation.getCurrentPosition(posConf).then(function (result) {
+                            resolve(result);
                         });
                     }
 
@@ -231,11 +262,13 @@ angular.module('ion-google-place', [])
                             };
                             geocoder.geocode({'location': latlng}, function (results, status) {
                                 if (status == google.maps.GeocoderStatus.OK) {
-                                    if (results[1]) {
-                                        resolve(results[1]);
-                                    } else {
-                                        resolve(results[0])
-                                    }
+                                    console.log(results)
+                                    resolve(results[0]);
+                                    // if (results[1]) {
+                                    //     resolve(results[1]);
+                                    // } else {
+                                    //     resolve(results[0]);
+                                    // }
                                 } else {
                                     var error = {
                                         status: status,
