@@ -19,7 +19,9 @@ angular.module('ion-google-place', [])
                     ngModel: '=?',
                     geocodeOptions: '=',
                     currentLocation: '@',
-                    currentLocationOnload: '@'
+                    currentLocationOnload: '@',
+                    onLocationDeactivated: '&',
+                    shared: '='
                 },
                 link: function(scope, element, attrs, ngModel) {
                     var unbindBackButtonAction;
@@ -82,11 +84,11 @@ angular.module('ion-google-place', [])
                         };
 
                         scope.setCurrentLocation = function(){
-                            var location = {
-                                formatted_address: 'getting current location...'
-                            };
-                            ngModel.$setViewValue(location);
-                            ngModel.$render();
+                            // var location = {
+                            //     formatted_address: 'Getting current location...'
+                            // };
+                            // ngModel.$setViewValue(location);
+                            // ngModel.$render();
                             el.element.css('display', 'none');
                             $ionicBackdrop.release();
                             getLocation()
@@ -96,6 +98,7 @@ angular.module('ion-google-place', [])
                                     element.attr('value', location.formatted_address);
                                     ngModel.$render();
                                     el.element.css('display', 'none');
+                                    $ionicLoading.hide();
                                     $ionicBackdrop.release();
                                 })
                                 .catch(function(error){
@@ -104,11 +107,11 @@ angular.module('ion-google-place', [])
                                     //} else {
                                     //    //TODO when error from reverse geocode
                                     //}
-                                    var location = {
-                                        formatted_address: 'Error in getting current location'
-                                    };
-                                    ngModel.$setViewValue(location);
-                                    ngModel.$render();
+                                    // var location = {
+                                    //     formatted_address: 'Error in getting current location'
+                                    // };
+                                    // ngModel.$setViewValue(location);
+                                    // ngModel.$render();
                                     el.element.css('display', 'none');
                                     $ionicBackdrop.release();
                                     $timeout(function(){
@@ -124,7 +127,7 @@ angular.module('ion-google-place', [])
                             if (scope.currentLocationOnload) scope.setCurrentLocation();
                         });
 
-                        scope.$parent.setCurrentLocation = scope.setCurrentLocation;
+                        scope.shared.setCurrentLocation = scope.setCurrentLocation;
 
                         scope.$watch('searchQuery', function(query){
                             if (searchEventTimeout) $timeout.cancel(searchEventTimeout);
@@ -230,14 +233,10 @@ angular.module('ion-google-place', [])
                                   // check if the mobile have the location enabled,
                                   // if no, witch to location settings
                                   if (!e) {
-                                    $ionicLoading.hide();
-                                    scope.$parent.init_complete = true;
-                                    cordova.plugins.diagnostic.switchToLocationSettings();
-
-                                    return;
-                                  } else {
-                                    codovaGetLocation(resolve, reject);
+                                    if (scope.onLocationDeactivated !== undefined) scope.onLocationDeactivated()();
                                   }
+
+                                  codovaGetLocation(resolve, reject);
 
                                 }, function (e) {
                                   alert('Error ' + e);
@@ -248,7 +247,6 @@ angular.module('ion-google-place', [])
 
                     function codovaGetLocation(resolve, reject) {
                         var posConf = {timeout: 10000, enableHighAccuracy: true};
-                        console.log("CORDOVA get location");
                         $cordovaGeolocation.getCurrentPosition(posConf).then(function (result) {
                             resolve(result);
                         });
@@ -262,7 +260,6 @@ angular.module('ion-google-place', [])
                             };
                             geocoder.geocode({'location': latlng}, function (results, status) {
                                 if (status == google.maps.GeocoderStatus.OK) {
-                                    console.log(results)
                                     resolve(results[0]);
                                     // if (results[1]) {
                                     //     resolve(results[1]);
