@@ -80,7 +80,8 @@ angular.module('ion-google-place', [])
                                 unbindBackButtonAction();
                                 unbindBackButtonAction = null;
                             }
-                            scope.$emit('ionGooglePlaceSetLocation',location);
+
+                            scope.$emit('ionGooglePlaceSetLocation', [location]);
                         };
 
                         scope.setCurrentLocation = function(){
@@ -93,13 +94,15 @@ angular.module('ion-google-place', [])
                             $ionicBackdrop.release();
                             getLocation()
                                 .then(reverseGeocoding)
-                                .then(function(location){
+                                .then(function(locations){
+                                    var location = locations[0];
                                     ngModel.$setViewValue(location);
                                     element.attr('value', location.formatted_address);
                                     ngModel.$render();
                                     el.element.css('display', 'none');
                                     $ionicLoading.hide();
                                     $ionicBackdrop.release();
+                                    scope.$emit('ionGooglePlaceSetLocation', locations);
                                 })
                                 .catch(function(error){
                                     //if(error.from == 'getLocation'){
@@ -260,7 +263,7 @@ angular.module('ion-google-place', [])
                             };
                             geocoder.geocode({'location': latlng}, function (results, status) {
                                 if (status == google.maps.GeocoderStatus.OK) {
-                                    resolve(results[0]);
+                                    resolve(results);
                                     // if (results[1]) {
                                     //     resolve(results[1]);
                                     // } else {
